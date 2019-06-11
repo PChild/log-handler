@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-
-# Note: should work correctly with either Python 2 or 3
-
-from __future__ import print_function
-
 # Parse the FRC drive station logs which are packed binary data
 
 # Notes on comparison to DSLog-Parse:
@@ -59,8 +54,8 @@ class DSLogParser:
         self.record_time_offset = datetime.timedelta(seconds=0.020)
         self.curr_time = None
 
-        self.read_header()
         self.version = None
+        self.read_header()
         return
 
     def close(self):
@@ -80,8 +75,9 @@ class DSLogParser:
 
     def read_header(self):
         self.version = struct.unpack('>i', self.strm.read(4))[0]
-        if self.version != 3:
-            raise Exception("Unknown file version number {}".format(self.version))
+        # Removed version check to move it up a level.
+        # if self.version != 3:
+        #    raise Exception("Unknown file version number {}".format(self.version))
 
         self.curr_time = read_timestamp(self.strm)
         return
@@ -202,8 +198,8 @@ class DSEventParser:
     def __init__(self, input_file):
         self.strm = open(input_file, 'rb')
 
-        self.read_header()
         self.version = None
+        self.read_header()
         return
 
     def close(self):
@@ -223,8 +219,9 @@ class DSEventParser:
 
     def read_header(self):
         self.version = struct.unpack('>i', self.strm.read(4))[0]
-        if self.version != 3:
-            raise Exception("Unknown file version number {}".format(self.version))
+        # Removed version check to move up a level
+        # if self.version != 3:
+        #    raise Exception("Unknown file version number {}".format(self.version))
         read_timestamp(self.strm)  # file start time
         return
 

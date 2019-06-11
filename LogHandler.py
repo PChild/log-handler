@@ -9,7 +9,7 @@ import sys
 import os
 
 
-class LogViewer(QWidget):
+class LogHandler(QWidget):
     def __init__(self):
         super().__init__()
 
@@ -22,16 +22,18 @@ class LogViewer(QWidget):
         self.filter = "Matches"
 
         self.title = 'DS Log Handler'
+        self.setWindowIcon(QtGui.QIcon('icon.png'))
         self.left = 50
         self.top = 50
-        self.width = 560
-        self.height = 480
+        self.width = 480
+        self.height = 640
 
         self.list_view = None
         self.list_model = None
         self.type_radios = None
         self.log_row = None
         self.out_row = None
+        self.status_line = None
         self.init_ui()
 
     def init_ui(self):
@@ -44,11 +46,16 @@ class LogViewer(QWidget):
         self.connect_to_radios(self.type_radios)
 
         self.list_view = QListView()
+        self.list_view.setSpacing(2)
         self.list_model = QtGui.QStandardItemModel(self.list_view)
         self.update_list_view()
 
         click_check = QPushButton('Export selected logs')
         click_check.clicked.connect(self.convert_files)
+
+        self.status_line = QLineEdit()
+        self.status_line.setText("")
+        self.status_line.setEnabled(False)
 
         layout = QVBoxLayout()
         layout.addLayout(self.log_row)
@@ -56,6 +63,7 @@ class LogViewer(QWidget):
         layout.addLayout(self.type_radios)
         layout.addWidget(self.list_view)
         layout.addWidget(click_check)
+        layout.addWidget(self.status_line)
         self.setLayout(layout)
         self.show()
 
@@ -92,18 +100,26 @@ class LogViewer(QWidget):
             col.append('match_info')
         col.extend(dslog2csv.DSLogParser.OUTPUT_COLUMNS)
 
+        problem_files = 0
         for in_name in log_files:
             in_file = self.log_dir + in_name
             match_info = None
 
             if get_match_info:
                 event_file = dslog2csv.find_event_file(in_file)
-                if event_file:
-                    # TODO Figure out why find_match_info is dying
-                    match_info = dslog2csv.find_match_info(event_file)
+                event_parser = dslog2csv.DSEventParser(event_file)
+
+                if event_file and event_parser.version == 3:
+                    try:
+                        match_info = dslog2csv.find_match_info(event_file)
+                    except:
+                        pass
+                else:
+                    self.status_line.setText(in_name + " had bad version, skipping.")
 
             if get_match_info and not match_info:
-                print("bad match info")
+                self.status_line.setText(in_name + " had bad match info, skipping.")
+                problem_files += 1
                 continue
 
             outname = self.output_dir + in_name[:-6] + ".csv"
@@ -111,7 +127,16 @@ class LogViewer(QWidget):
             outcsv = csv.DictWriter(outstrm, fieldnames=col, extrasaction='ignore')
             outcsv.writeheader()
 
-            dsparser = dslog2csv.DSLogParser(in_file)
+            try:
+                dsparser = dslog2csv.DSLogParser(in_file)
+            except:
+                self.status_line.setText(in_file + " had bad version, skipping.")
+                problem_files += 1
+                continue
+            if dsparser.version != 3:
+                self.status_line.setText(in_file + " had bad version, skipping.")
+                problem_files += 1
+                continue
             for rec in dsparser.read_records():
                 rec['inputfile'] = in_file
                 rec['match_info'] = match_info
@@ -122,6 +147,8 @@ class LogViewer(QWidget):
                 outcsv.writerow(rec)
             dsparser.close()
             outstrm.close()
+        self.status_line.setText("Processing complete. Skipped " + str(problem_files) + "/"
+                                 + str(len(log_files)) + " log files.")
 
     def check_config(self):
         config = configparser.ConfigParser()
@@ -210,6 +237,5 @@ class RadioGroup(QHBoxLayout):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
-
-    ex = LogViewer()
+    ex = LogHandler()
     sys.exit(app.exec_())

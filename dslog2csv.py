@@ -20,8 +20,6 @@ import re
 import datetime
 import math
 
-# Python 2 CSV writer wants binary output, but Py3 want regular
-_USE_BINARY_OUTPUT = sys.version_info[0] == 2
 MAX_INT64 = 2**63 - 1
 
 
@@ -278,11 +276,6 @@ if __name__ == '__main__':
         args.add_match_info = True
 
     if sys.platform == "win32":
-        if _USE_BINARY_OUTPUT:
-            # csv.writer requires binary output file
-            import msvcrt
-            msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
-
         # do glob expanding on Windows. Linux/Mac does this automatically.
         import glob
         newfiles = []
@@ -303,17 +296,19 @@ if __name__ == '__main__':
 
         if not args.one_output_per_file:
             if args.output:
-                outstrm = open(args.output, 'wb' if _USE_BINARY_OUTPUT else 'w')
+                outstrm = open(args.output, 'w')
             else:
                 outstrm = sys.stdout
             outcsv = csv.DictWriter(outstrm, fieldnames=col, extrasaction='ignore')
             outcsv.writeheader()
+
         else:
             outstrm = None
             outcsv = None
 
         for fn in args.files:
             match_info = None
+
             if args.add_match_info:
                 evtfn = find_event_file(fn)
                 if evtfn:
@@ -327,7 +322,7 @@ if __name__ == '__main__':
                     outstrm.close()
                 outname, _ = os.path.splitext(os.path.basename(fn))
                 outname += '.csv'
-                outstrm = open(outname, 'wb' if _USE_BINARY_OUTPUT else 'w')
+                outstrm = open(outname, 'w')
                 outcsv = csv.DictWriter(outstrm, fieldnames=col, extrasaction='ignore')
                 outcsv.writeheader()
 

@@ -1,9 +1,10 @@
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5 import QtGui
 import dslog2csv
 import configparser
 import glob
+import csv
 import sys
 import os
 
@@ -37,17 +38,17 @@ class LogViewer(QWidget):
         self.setWindowTitle(self.title)
         self.setFixedSize(self.width, self.height)
 
-        click_check = QPushButton('Export selected logs')
-        click_check.clicked.connect(self.convert_files)
+        self.log_row = ButtonRow("Log Folder:", self.log_dir)
+        self.out_row = ButtonRow("Out Folder:", self.output_dir)
+        self.type_radios = RadioGroup("Log Type:", "Matches", "Practice", "Both")
+        self.connect_to_radios(self.type_radios)
 
         self.list_view = QListView()
         self.list_model = QtGui.QStandardItemModel(self.list_view)
         self.update_list_view()
 
-        self.type_radios = RadioGroup("Log Type:", "Matches", "Practice", "Both")
-        self.connect_to_radios(self.type_radios)
-        self.log_row = ButtonRow("Log Folder:", self.log_dir)
-        self.out_row = ButtonRow("Out Folder:", self.output_dir)
+        click_check = QPushButton('Export selected logs')
+        click_check.clicked.connect(self.convert_files)
 
         layout = QVBoxLayout()
         layout.addLayout(self.log_row)
@@ -73,6 +74,8 @@ class LogViewer(QWidget):
         self.list_view.setModel(self.list_model)
 
     def convert_files(self):
+        self.prep_out_location()
+
         log_files = []
         for index in range(self.list_model.rowCount()):
             item = self.list_model.item(index)
@@ -81,9 +84,44 @@ class LogViewer(QWidget):
                 if file_type == "dslog":
                     log_files.append(item.text())
 
-            print(item.text(), item.checkState())
-        print(log_files)
-        self.prep_out_location()
+        # CODE BELOW IS REIMPLEMENTED FROM DSLOG2CSV
+        get_match_info = self.filter == "Matches"
+
+        col = ['inputfile', ]
+        if get_match_info:
+            col.append('match_info')
+        col.extend(dslog2csv.DSLogParser.OUTPUT_COLUMNS)
+
+        for in_name in log_files:
+            in_file = self.log_dir + in_name
+            match_info = None
+
+            if get_match_info:
+                event_file = dslog2csv.find_event_file(in_file)
+                if event_file:
+                    # TODO Figure out why find_match_info is dying
+                    match_info = dslog2csv.find_match_info(event_file)
+
+            if get_match_info and not match_info:
+                print("bad match info")
+                continue
+
+            outname = self.output_dir + in_name[:-6] + ".csv"
+            outstrm = open(outname, 'w')
+            outcsv = csv.DictWriter(outstrm, fieldnames=col, extrasaction='ignore')
+            outcsv.writeheader()
+
+            dsparser = dslog2csv.DSLogParser(in_file)
+            for rec in dsparser.read_records():
+                rec['inputfile'] = in_file
+                rec['match_info'] = match_info
+
+                for i in range(16):
+                    rec['pdp_{}'.format(i)] = rec['pdp_currents'][i]
+
+                outcsv.writerow(rec)
+            dsparser.close()
+            outstrm.close()
 
     def check_config(self):
         config = configparser.ConfigParser()

@@ -21,7 +21,7 @@ class LogHandler(QWidget):
         self.log_dir = self.config['DEFAULT']['LogLocation']
         self.output_dir = self.config['DEFAULT']['OutputLocation']
 
-        self.filter = "Match"
+        self.filter = "Both"
 
         self.log_data = None
         self.update_files_data()
@@ -184,7 +184,7 @@ class LogHandler(QWidget):
         file_str = str(file_cnt)
         success = str(file_cnt - problem_files) + "/" + file_str
         fails = str(problem_files) + "/" + file_str
-        self.status_line.setText("Export complete. Processed  " + success + " log files, skipped " + fails + " files.")
+        self.status_line.setText("Export complete. Processed " + success + " log files, skipped " + fails + " files.")
 
     def archive_files(self):
         self.status_line.setText("Archiving files...")
@@ -290,7 +290,7 @@ class RadioGroup(QHBoxLayout):
         self.i2.toggled.connect(lambda: self.click_handler(self.i2))
         self.i3 = QRadioButton(i3)
         self.i3.toggled.connect(lambda: self.click_handler(self.i3))
-        self.i1.setChecked(True)
+        self.i3.setChecked(True)
         self.addWidget(self.i1)
         self.addWidget(self.i2)
         self.addWidget(self.i3)
